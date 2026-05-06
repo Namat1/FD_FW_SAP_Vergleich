@@ -21,7 +21,7 @@ def load_file(file):
 
 def tage_str(tage_set):
     sorted_tage = sorted([int(t) for t in tage_set if pd.notna(t)])
-    return ", ".join([f"{WOCHENTAGE.get(t, t)}" for t in sorted_tage])
+    return ", ".join([WOCHENTAGE.get(t, str(t)) for t in sorted_tage])
 
 col1, col2 = st.columns(2)
 with col1:
@@ -47,7 +47,6 @@ if run:
     if sap_input.strip():
         filter_sap = [s.strip() for s in sap_input.strip().splitlines() if s.strip()]
 
-    # Basis: alle SAP aus FW
     all_sap = sorted(set(fw_df["SAP"]))
     if filter_sap:
         all_sap = [s for s in all_sap if s in filter_sap]
@@ -61,11 +60,8 @@ if run:
         fw_rows = fw_df[fw_df["SAP"] == sap]
 
         name = fw_rows["Name"].iloc[0] if not fw_rows.empty else (fd_rows["Name"].iloc[0] if not fd_rows.empty else "")
-
         fd_tage = set(fd_rows["Liefertag"].dropna().astype(int))
         fw_tage = set(fw_rows["Liefertag"].dropna().astype(int))
-
-        # KERN: FW-Tage die NICHT in FD vorhanden sind
         fw_fehlt_in_fd = fw_tage - fd_tage
 
         if not fd_tage:
@@ -124,7 +120,7 @@ if run:
             return ["background-color: #f8d7da"] * len(row)
         if row["Status"] == "⚠️ Tage fehlen in FD":
             return ["background-color: #fff3cd"] * len(row)
-        return [""] * len(row)
+        return ["background-color: #d4edda"] * len(row)
 
     st.dataframe(
         view_df.style.apply(highlight, axis=1),
@@ -133,77 +129,98 @@ if run:
         height=520,
     )
 
-    # Excel Export
+    # ── Excel Export ──────────────────────────────────────────────────────────
     def build_excel(df_rows):
         wb = Workbook()
         ws = wb.active
-        ws.title = "Alle FW-Kunden"
+        ws.title = "Vergleich"
 
-        hf = Font(name="Arial", bold=True, color="FFFFFF", size=10)
-        hfill = PatternFill("solid", start_color="2B579A")
-        ok_fill = PatternFill("solid", start_color="D4EDDA")
-        warn_fill = PatternFill("solid", start_color="FFF3CD")
-        err_fill = PatternFill("solid", start_color="F8D7DA")
-        center = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        left = Alignment(horizontal="left", vertical="center", wrap_text=True)
-        thin = Side(style="thin", color="CCCCCC")
-        bdr = Border(left=thin, right=thin, top=thin, bottom=thin)
+        # Farben wie im Screenshot
+        BLUE_HDR   = "2E4B8F"   # Status-Spalte Header (dunkelblau)
+        RED_HDR    = "C00000"   # FW Tage Header (rot)
+        GREEN_HDR  = "375623"   # FD Tage Header (dunkelgrün)
+        PURPLE_HDR = "2E4B8F"   # FEHLEN-Spalte Header (blau)
+        
+        OK_ROW     = "E2EFDA"   # helles Grün für OK-Zeilen
+        WARN_ROW   = "FFF3CD"   # gelb für fehlende Tage
+        ERR_ROW    = "F8D7DA"   # rot für nicht in FD
 
-        headers = ["Status", "SAP", "Name", "FW Tage", "FD Tage", "FW-Tage FEHLEN in FD"]
-        col_widths = [20, 12, 35, 22, 22, 25]
+        white_bold = Font(name="Arial", bold=True, color="FFFFFF", size=10)
+        center = Alignment(horizontal="center", vertical="center", wrap_text=False)
+        left   = Alignment(horizontal="left",   vertical="center", wrap_text=False)
+        thin   = Side(style="thin", color="BFBFBF")
+        bdr    = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-        for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
+        headers    = ["Status",    "SAP",  "Name", "FW Tage",  "FD Tage",  "FW-Tage FEHLEN in FD"]
+        hdr_colors = [BLUE_HDR,   BLUE_HDR, BLUE_HDR, RED_HDR, GREEN_HDR,  PURPLE_HDR]
+        col_widths = [22,          12,       38,       22,       22,         28]
+
+        for ci, (h, color, w) in enumerate(zip(headers, hdr_colors, col_widths), 1):
             cell = ws.cell(row=1, column=ci, value=h)
-            cell.font = hf
-            cell.fill = hfill
+            cell.font  = white_bold
+            cell.fill  = PatternFill("solid", start_color=color)
             cell.alignment = center
             cell.border = bdr
             ws.column_dimensions[get_column_letter(ci)].width = w
-        ws.row_dimensions[1].height = 22
+
+        ws.row_dimensions[1].height = 20
+
+        data_font = Font(name="Arial", size=10)
 
         for ri, row in enumerate(df_rows, 2):
-            fill = err_fill if row["_kein_fd"] else (warn_fill if row["_fw_fehlt"] else ok_fill)
-            values = [row["Status"], row["SAP"], row["Name"],
-                      row["FW Tage"], row["FD Tage"], row["FW-Tage FEHLEN in FD"]]
+            if row["_kein_fd"]:
+                row_fill = PatternFill("solid", start_color=ERR_ROW)
+            elif row["_fw_fehlt"]:
+                row_fill = PatternFill("solid", start_color=WARN_ROW)
+            else:
+                row_fill = PatternFill("solid", start_color=OK_ROW)
+
+            values = [
+                row["Status"], row["SAP"], row["Name"],
+                row["FW Tage"], row["FD Tage"], row["FW-Tage FEHLEN in FD"]
+            ]
             for ci, val in enumerate(values, 1):
                 cell = ws.cell(row=ri, column=ci, value=val)
-                cell.font = Font(name="Arial", size=9)
-                cell.border = bdr
+                cell.font      = data_font
+                cell.fill      = row_fill
+                cell.border    = bdr
                 cell.alignment = left if ci == 3 else center
-                cell.fill = fill
+
             ws.row_dimensions[ri].height = 16
 
-        ws.freeze_panes = "A2"
+        ws.freeze_panes  = "A2"
         ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}1"
 
         # Sheet 2: Nur Probleme
         ws2 = wb.create_sheet("Probleme")
-        for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
+        for ci, (h, color, w) in enumerate(zip(headers, hdr_colors, col_widths), 1):
             cell = ws2.cell(row=1, column=ci, value=h)
-            cell.font = hf
-            cell.fill = hfill
+            cell.font  = white_bold
+            cell.fill  = PatternFill("solid", start_color=color)
             cell.alignment = center
             cell.border = bdr
             ws2.column_dimensions[get_column_letter(ci)].width = w
-        ws2.row_dimensions[1].height = 22
+        ws2.row_dimensions[1].height = 20
 
         ri2 = 2
         for row in df_rows:
             if not row["_fw_fehlt"] and not row["_kein_fd"]:
                 continue
-            fill = err_fill if row["_kein_fd"] else warn_fill
-            values = [row["Status"], row["SAP"], row["Name"],
-                      row["FW Tage"], row["FD Tage"], row["FW-Tage FEHLEN in FD"]]
+            row_fill = PatternFill("solid", start_color=ERR_ROW if row["_kein_fd"] else WARN_ROW)
+            values = [
+                row["Status"], row["SAP"], row["Name"],
+                row["FW Tage"], row["FD Tage"], row["FW-Tage FEHLEN in FD"]
+            ]
             for ci, val in enumerate(values, 1):
                 cell = ws2.cell(row=ri2, column=ci, value=val)
-                cell.font = Font(name="Arial", size=9)
-                cell.border = bdr
+                cell.font      = data_font
+                cell.fill      = row_fill
+                cell.border    = bdr
                 cell.alignment = left if ci == 3 else center
-                cell.fill = fill
             ws2.row_dimensions[ri2].height = 16
             ri2 += 1
 
-        ws2.freeze_panes = "A2"
+        ws2.freeze_panes   = "A2"
         ws2.auto_filter.ref = f"A1:{get_column_letter(len(headers))}1"
 
         buf = io.BytesIO()
