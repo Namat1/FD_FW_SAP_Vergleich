@@ -77,7 +77,7 @@ if run:
             "Name": name,
             "FW Tage": tage_str(fw_tage) if fw_tage else "–",
             "FD Tage": tage_str(fd_tage) if fd_tage else "–",
-            "FW-Tage FEHLEN in FD": tage_str(fw_fehlt_in_fd) if fw_fehlt_in_fd else "–",
+            "FW-Tage FEHLEN in FD - bitte löschen!": tage_str(fw_fehlt_in_fd) if fw_fehlt_in_fd else "–",
             "_fw_fehlt": fw_fehlt_in_fd,
             "_kein_fd": not bool(fd_tage),
         })
@@ -99,7 +99,7 @@ if run:
 
     st.divider()
 
-    show_cols = ["Status", "SAP", "Name", "FW Tage", "FD Tage", "FW-Tage FEHLEN in FD"]
+    show_cols = ["Status", "SAP", "Name", "FW Tage", "FD Tage", "FW-Tage FEHLEN in FD - bitte löschen!"]
 
     filter_mode = st.radio(
         "Anzeigen:",
@@ -151,7 +151,7 @@ if run:
         thin   = Side(style="thin", color="BFBFBF")
         bdr    = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-        headers    = ["Status",    "SAP",  "Name", "FW Tage",  "FD Tage",  "FW-Tage FEHLEN in FD"]
+        headers    = ["Status",    "SAP",  "Name", "FW Tage",  "FD Tage",  "FW-Tage FEHLEN in FD - bitte löschen!"]
         hdr_colors = [BLUE_HDR,   BLUE_HDR, BLUE_HDR, RED_HDR, GREEN_HDR,  PURPLE_HDR]
         col_widths = [22,          12,       38,       22,       22,         28]
 
@@ -177,7 +177,7 @@ if run:
 
             values = [
                 row["Status"], row["SAP"], row["Name"],
-                row["FW Tage"], row["FD Tage"], row["FW-Tage FEHLEN in FD"]
+                row["FW Tage"], row["FD Tage"], row["FW-Tage FEHLEN in FD - bitte löschen!"]
             ]
             for ci, val in enumerate(values, 1):
                 cell = ws.cell(row=ri, column=ci, value=val)
@@ -209,7 +209,7 @@ if run:
             row_fill = PatternFill("solid", start_color=ERR_ROW if row["_kein_fd"] else WARN_ROW)
             values = [
                 row["Status"], row["SAP"], row["Name"],
-                row["FW Tage"], row["FD Tage"], row["FW-Tage FEHLEN in FD"]
+                row["FW Tage"], row["FD Tage"], row["FW-Tage FEHLEN in FD - bitte löschen!"]
             ]
             for ci, val in enumerate(values, 1):
                 cell = ws2.cell(row=ri2, column=ci, value=val)
